@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CONDUIT</title>
+<style>
+:root{
+  --void:#0a0e13; --panel:#111823; --panel2:#18212e; --line:#25344a;
+  --ink:#dde7f3; --dim:#7f92a9; --signal:#3fdcbb; --amber:#ffb454; --danger:#ff6b6b;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --r:10px;
+}
+html[data-theme="light"]{
+  --void:#f2f4f7; --panel:#ffffff; --panel2:#e9edf3; --line:#ccd6e2;
+  --ink:#141b24; --dim:#5c6b7d; --signal:#0f8f77; --amber:#a86b12;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--void);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%;overscroll-behavior:none}
+button,input,select,textarea{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---- shell ---- */
+#app{display:flex;flex-direction:column;height:100dvh;max-width:940px;margin:0 auto;
+  border-left:1px solid var(--line);border-right:1px solid var(--line)}
+header{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel);
+  border-bottom:1px solid var(--line);flex:0 0 auto}
+.brand{font-family:var(--mono);font-size:12px;letter-spacing:.28em;color:var(--signal);
+  font-weight:700;padding-right:4px}
+/* signature element: the routing path chip */
+#route{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-family:var(--mono);
+  font-size:11px;color:var(--dim);background:var(--panel2);border:1px solid var(--line);
+  border-radius:var(--r);padding:5px 8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#route b{color:var(--ink);font-weight:600}
+#route .sep{color:var(--signal)}
+#route .dot{width:6px;height:6px;border-radius:50%;background:var(--dim);flex:0 0 auto}
+#route.live .dot{background:var(--signal);box-shadow:0 0 0 0 var(--signal);animation:pulse 1.4s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(63,220,187,0)}100%{box-shadow:0 0 0 0 rgba(63,220,187,0)}}
+.iconbtn{width:34px;height:34px;border-radius:var(--r);border:1px solid var(--line);
+  background:var(--panel2);display:grid;place-items:center;font-size:15px;flex:0 0 auto}
+.iconbtn:active{background:var(--line)}
+
+main{flex:1 1 auto;overflow-y:auto;padding:12px 10px 4px;scroll-behavior:smooth}
+footer{flex:0 0 auto;background:var(--panel);border-top:1px solid var(--line);
+  padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
+
+/* ---- messages ---- */
+.msg{margin:0 0 14px;max-width:100%}
+.who{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--dim);
+  margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.msg.user .who{color:var(--amber)}
+.msg.assistant .who{color:var(--signal)}
+.bubble{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:10px 12px;overflow-wrap:anywhere}
+.msg.user .bubble{background:var(--panel2)}
+.msg.tool .bubble{background:transparent;border-style:dashed;color:var(--dim);font-size:13px;
+  font-family:var(--mono)}
+.msg.error .bubble{border-color:var(--danger);color:var(--danger)}
+.acts{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.acts button{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--dim);
+  border:1px solid var(--line);border-radius:6px;padding:3px 7px}
+.acts button:active{color:var(--ink);background:var(--panel2)}
+.bubble p{margin:0 0 .7em}.bubble p:last-child{margin-bottom:0}
+.bubble h1,.bubble h2,.bubble h3{margin:.6em 0 .35em;line-height:1.25;font-size:1.05em}
+.bubble ul,.bubble ol{margin:.2em 0 .7em;padding-left:1.2em}
+.bubble a{color:var(--signal)}
+.bubble blockquote{margin:.4em 0;padding-left:10px;border-left:2px solid var(--line);color:var(--dim)}
+.bubble code.inl{font-family:var(--mono);font-size:.88em;background:var(--panel2);
+  border:1px solid var(--line);border-radius:5px;padding:1px 4px}
+.bubble img.att{max-width:180px;border-radius:8px;border:1px solid var(--line);margin:4px 4px 0 0}
+.bubble table{border-collapse:collapse;font-size:.9em;display:block;overflow-x:auto}
+.bubble td,.bubble th{border:1px solid var(--line);padding:4px 7px}
+.cursor{display:inline-block;width:7px;height:1em;background:var(--signal);
+  vertical-align:-2px;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* ---- code window ---- */
+.code{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin:.5em 0;
+  background:var(--void)}
+.code .bar{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--panel2);
+  border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10px;color:var(--dim)}
+.code .bar .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.code .bar button{font-family:var(--mono);font-size:10px;color:var(--signal);
+  border:1px solid var(--line);border-radius:5px;padding:2px 6px}
+.code pre{margin:0;padding:10px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;
+  line-height:1.5;max-height:60vh}
+.tok-k{color:var(--amber)}.tok-s{color:var(--signal)}.tok-c{color:var(--dim);font-style:italic}
+.tok-n{color:#c792ea}
+
+/* ---- composer ---- */
+#atts{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+#atts .thumb{position:relative}
+#atts img{width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+#atts .x{position:absolute;top:-6px;right:-6px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:50%;width:20px;height:20px;font-size:11px;line-height:1}
+.crow{display:flex;gap:6px;align-items:flex-end}
+#input{flex:1;min-height:44px;max-height:38vh;resize:none;background:var(--panel2);
+  border:1px solid var(--line);border-radius:var(--r);padding:11px 12px;font-size:15px}
+#send{width:44px;height:44px;border-radius:var(--r);background:var(--signal);color:#04120e;
+  font-weight:700;font-size:17px;display:grid;place-items:center;flex:0 0 auto}
+#send.stop{background:var(--danger);color:#1a0505}
+.quick{display:flex;gap:6px;overflow-x:auto;margin-bottom:6px;padding-bottom:2px}
+.quick button{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--dim);
+  border:1px solid var(--line);border-radius:999px;padding:4px 9px;white-space:nowrap}
+.quick button.on{color:var(--signal);border-color:var(--signal)}
+
+/* ---- sheet ---- */
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:50;
+  align-items:flex-end;justify-content:center}
+.sheet.open{display:flex}
+.sheet .inner{background:var(--panel);width:100%;max-width:940px;max-height:92dvh;overflow-y:auto;
+  border-top-left-radius:16px;border-top-right-radius:16px;border:1px solid var(--line);
+  padding:14px 12px calc(20px + env(safe-area-inset-bottom))}
+.sheet h2{font-family:var(--mono);font-size:12px;letter-spacing:.22em;color:var(--signal);
+  margin:0 0 12px;text-transform:uppercase}
+.sheet h3{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--dim);
+  margin:18px 0 8px;text-transform:uppercase;border-top:1px solid var(--line);padding-top:12px}
+label.f{display:block;margin-bottom:9px}
+label.f span{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+  color:var(--dim);margin-bottom:3px;text-transform:uppercase}
+input[type=text],input[type=password],input[type=number],select,textarea.f{width:100%;
+  background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 10px}
+textarea.f{min-height:90px;resize:vertical;font-family:var(--mono);font-size:13px}
+.row{display:flex;gap:8px}.row>*{flex:1;min-width:0}
+.btn{border:1px solid var(--line);border-radius:8px;padding:9px 12px;background:var(--panel2);
+  font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;text-align:center}
+.btn.pri{background:var(--signal);color:#04120e;border-color:var(--signal);font-weight:700}
+.btn.dan{color:var(--danger);border-color:var(--danger)}
+.list{display:flex;flex-direction:column;gap:6px}
+.item{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;
+  padding:8px 10px;background:var(--panel2)}
+.item .t{flex:1;min-width:0}
+.item .t b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .t small{color:var(--dim);font-family:var(--mono);font-size:10px;
+  display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item.sel{border-color:var(--signal)}
+.hint{color:var(--dim);font-size:12px;margin:6px 0 0}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;
+  border-bottom:1px solid var(--line)}
+.sw:last-child{border-bottom:0}
+.sw .lbl{font-size:13.5px}.sw .lbl small{display:block;color:var(--dim);font-size:11px}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--signal)}
+input[type=range]{width:100%;accent-color:var(--signal)}
+
+/* ---- tabs ---- */
+#tabs{display:flex;gap:5px;overflow-x:auto;padding:6px 8px;background:var(--panel);
+  border-bottom:1px solid var(--line);flex:0 0 auto;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+.tab{display:flex;align-items:center;gap:6px;flex:0 0 auto;max-width:46vw;
+  border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:5px 8px;
+  font-family:var(--mono);font-size:11px;color:var(--dim)}
+.tab b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tab.on{border-color:var(--signal);color:var(--ink)}
+.tab .k{color:var(--signal);font-size:9px;letter-spacing:.1em}
+.tab.pin .k{color:var(--amber)}
+.tab .x{color:var(--dim);padding:0 2px}
+#tabs .add{border:1px dashed var(--line);border-radius:8px;padding:5px 9px;color:var(--dim);
+  font-family:var(--mono);font-size:12px;flex:0 0 auto}
+/* ---- web pane ---- */
+#web{flex:1 1 auto;overflow-y:auto;padding:8px 10px 20px;display:flex;flex-direction:column}
+#web[hidden]{display:none}
+.addr{display:flex;gap:6px;align-items:center;position:sticky;top:-8px;z-index:2;
+  background:var(--void);padding:4px 0}
+.addr input{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);
+  padding:9px 10px;font-family:var(--mono);font-size:12.5px}
+.iconbtn.sm{width:32px;height:32px;font-size:14px}
+.wtools{display:flex;gap:6px;overflow-x:auto;padding:6px 0 2px;scrollbar-width:none}
+.wtools::-webkit-scrollbar{display:none}
+.wtools button{font-family:var(--mono);font-size:10.5px;color:var(--dim);border:1px solid var(--line);
+  border-radius:999px;padding:4px 9px;white-space:nowrap}
+.wtools button:active{color:var(--signal);border-color:var(--signal)}
+#wBody{font-size:14.5px}
+#wBody h1,#wBody h2{border-bottom:1px solid var(--line);padding-bottom:4px}
+.kbcard{border-left:2px solid var(--signal);padding:2px 0 2px 10px;margin:0 0 10px}
+.kbcard b{display:block;font-size:13.5px}
+.kbcard small{color:var(--dim);font-family:var(--mono);font-size:10px}
+.kbcard p{margin:3px 0 0;font-size:13px;color:var(--ink)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;background:var(--panel2);
+  border:1px solid var(--signal);color:var(--ink);padding:8px 14px;border-radius:999px;
+  font-family:var(--mono);font-size:11px;z-index:99;display:none}
+.empty{text-align:center;color:var(--dim);padding:36px 16px;font-family:var(--mono);font-size:12px;
+  line-height:1.9;letter-spacing:.05em}
+.empty b{color:var(--signal);display:block;letter-spacing:.3em;margin-bottom:10px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">CONDUIT</div>
+    <div id="route"><span class="dot"></span><span id="routetxt">no model set</span></div>
+    <button class="iconbtn" id="btnFiles" title="Files from this chat">⤓</button>
+    <button class="iconbtn" id="btnMenu" title="Menu">☰</button>
+  </header>
+  <div id="tabs"></div>
+  <main id="log"></main>
+  <section id="web" hidden>
+    <div class="addr">
+      <button class="iconbtn sm" id="wBack" title="Back">‹</button>
+      <input type="text" id="wUrl" placeholder="url, or type to search" spellcheck="false">
+      <button class="iconbtn sm" id="wGo" title="Load">→</button>
+    </div>
+    <div class="wtools">
+      <button data-w="reload">reload</button><button data-w="mark">bookmark</button>
+      <button data-w="pin">pin tab</button><button data-w="chat">send to chat</button>
+      <button data-w="kb">save to knowledge</button><button data-w="ext">open outside</button>
+    </div>
+    <div id="wBody" class="bubble" style="border:0;background:transparent;padding:12px 2px"></div>
+  </section>
+  <footer>
+    <div class="quick" id="quick"></div>
+    <div id="atts"></div>
+    <div class="crow">
+      <button class="iconbtn" id="btnImg" title="Attach image">🖼</button>
+      <textarea id="input" rows="1" placeholder="Message…"></textarea>
+      <button id="send">↑</button>
+    </div>
+  </footer>
+</div>
+<input type="file" id="file" accept="image/*" multiple hidden>
+<div class="sheet" id="sheet"><div class="inner" id="sheetBody"></div></div>
+<div id="toast"></div>
+<script>
+"use strict";
+/* ============================ STATE / STORAGE ============================ */
+const KEY="conduit.v2";
+const PROVIDERS={
+  hf:{name:"Hugging Face",base:"https://router.huggingface.co/v1",style:"openai",
+      keyUrl:"https://huggingface.co/settings/tokens"},
+  openai:{name:"OpenAI",base:"https://api.openai.com/v1",style:"openai"},
+  anthropic:{name:"Anthropic (Claude)",base:"https://api.anthropic.com/v1",style:"anthropic"},
+  google:{name:"Google Gemini",base:"https://generativelanguage.googleapis.com/v1beta/openai",style:"openai"},
+  openrouter:{name:"OpenRouter",base:"https://openrouter.ai/api/v1",style:"openai"},
+  custom:{name:"Custom (OpenAI-compatible)",base:"",style:"openai"}
+};
+const DEF={
+  theme:"dark",
+  keys:[],            // {id,label,provider,key}
+  models:[],          // {id,label,provider,model,keyId,base}
+  presets:[],         // {id,name,system,modelId,params,tools}
+  activeModel:null, activePreset:null,
+  params:{temperature:0.7,top_p:1,max_tokens:2048},
+  tools:{mode:"native", backend:"jina", tavily:"", maxCalls:3},
+  chats:[], activeChat:null,
+  tabs:[], activeTab:null,
+  links:[],           // {id,url,title,tags,pinned,note}
+  kb:{on:false, entries:[], gistId:"", token:"", rawUrl:"", auto:false, author:"Mighty"},
+  stripMeta:true, maxImgPx:1400, sendHistory:true, stream:true
+};
+let S=load(), mem=null;
+function load(){
+  try{const r=localStorage.getItem(KEY); if(r){
+    const o=Object.assign({},DEF,JSON.parse(r));
+    if(o.tools&&typeof o.tools.search==="boolean"){o.tools.mode=o.tools.search?"relay":"off";delete o.tools.search;}
+    return o;}}
+  catch(e){}
+  return JSON.parse(JSON.stringify(DEF));
+}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(S));}
+  catch(e){ if(!mem){mem=true;toast("Storage blocked — this session only");} }
+}
+const uid=()=>Math.random().toString(36).slice(2,10);
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.style.display="block";
+  clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",2200);}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* ============================ CHAT MODEL ============================ */
+function chat(){
+  let c=S.chats.find(c=>c.id===S.activeChat);
+  if(!c){c={id:uid(),title:"New thread",msgs:[],presetId:S.activePreset,created:Date.now()};
+    S.chats.unshift(c);S.activeChat=c.id;save();}
+  return c;
+}
+function newChat(){const c={id:uid(),title:"New thread",msgs:[],presetId:S.activePreset,created:Date.now()};
+  S.chats.unshift(c);S.activeChat=c.id;
+  const t={id:uid(),kind:"chat",ref:c.id,pinned:false};S.tabs.push(t);S.activeTab=t.id;
+  save();render();closeSheet();}
+function modelById(id){return S.models.find(m=>m.id===id)||null;}
+function keyById(id){return S.keys.find(k=>k.id===id)||null;}
+function activeModel(){return modelById(S.activeModel);}
+function activePreset(){return S.presets.find(p=>p.id===S.activePreset)||null;}
+
+/* ============================ IMAGES (metadata strip) ============================ */
+/* Re-drawing through a canvas discards EXIF/GPS and every other metadata block:
+   only raw pixels survive the round-trip. */
+function ingestImage(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onerror=()=>rej(new Error("Could not read file"));
+    fr.onload=()=>{
+      if(!S.stripMeta) return res(fr.result);
+      const img=new Image();
+      img.onerror=()=>rej(new Error("Could not decode image"));
+      img.onload=()=>{
+        const max=S.maxImgPx, sc=Math.min(1,max/Math.max(img.width,img.height));
+        const cv=document.createElement("canvas");
+        cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
+        const cx=cv.getContext("2d"); cx.drawImage(img,0,0,cv.width,cv.height);
+        res(cv.toDataURL("image/jpeg",0.9));
+      };
+      img.src=fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+/* ============================ TOOLS: SEARCH / FETCH ============================ */
+/* Providers that run search on their own servers — the call stays between you and them,
+   no extra middleman, no CORS workaround. */
+const NATIVE={anthropic:"tools",openai:"options",openrouter:"online"};
+function nativeOK(mdl){return mdl&&!!NATIVE[mdl.provider];}
+function webMode(){          // what this model can actually do right now
+  const m=activeModel();
+  if(S.tools.mode==="off") return "off";
+  if(S.tools.mode==="native") return nativeOK(m)?"native":"off";
+  return "relay";
+}
+const NATIVE_PROMPT=`You have live web search built in. Use it whenever the answer depends on current
+information, and put the source links in your reply.`;
+
+const WEB_PROMPT=`You can reach the live web through this app. Put a call on its own line:
+[[SEARCH: your query]]   \u2014 web search, returns snippets with URLs
+[[FETCH: https://url]]   \u2014 read one page as text
+Stop writing immediately after a call; the result is handed back, then continue.
+Cite the links you used. Never invent a call result.`;
+
+const KB_PROMPT=`This app carries a shared knowledge base that other AI sessions read and write too.
+[[KB: query]]                 \u2014 look something up before answering
+[[KB-SAVE: title | body]]     \u2014 record something durable and reusable
+Read before you assume. Save facts, decisions and solved problems \u2014 not chit-chat, and nothing private
+unless asked. One call per turn, then stop and wait for the result.`;
+
+async function runSearch(q){
+  if(S.tools.backend==="tavily"){
+    if(!S.tools.tavily) throw new Error("No Tavily key set");
+    const r=await fetch("https://api.tavily.com/search",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({api_key:S.tools.tavily,query:q,max_results:5,include_answer:true})});
+    if(!r.ok) throw new Error("Tavily "+r.status);
+    const d=await r.json();
+    return (d.answer?"Summary: "+d.answer+"\n\n":"")+
+      (d.results||[]).map((x,i)=>`${i+1}. ${x.title}\n${x.url}\n${(x.content||"").slice(0,500)}`).join("\n\n");
+  }
+  const url="https://r.jina.ai/https://duckduckgo.com/html/?q="+encodeURIComponent(q);
+  const r=await fetch(url,{headers:{"x-respond-with":"text"}});
+  if(!r.ok) throw new Error("Search relay "+r.status);
+  const t=await r.text();
+  return t.replace(/\n{3,}/g,"\n\n").slice(0,6000);
+}
+async function runFetch(u){
+  const r=await fetch("https://r.jina.ai/"+u);
+  if(!r.ok) throw new Error("Fetch relay "+r.status);
+  return (await r.text()).slice(0,8000);
+}
+function findToolCall(text){
+  const m=text.match(/\[\[(SEARCH|FETCH|KB-SAVE|KB):\s*([^\]]+)\]\]/i);
+  if(!m) return null;
+  const kind=m[1].toUpperCase();
+  if((kind==="SEARCH"||kind==="FETCH")&&webMode()!=="relay") return null;
+  if(kind.startsWith("KB")&&!S.kb.on) return null;
+  return {kind,arg:m[2].trim()};
+}
+async function runTool(call){
+  if(call.kind==="SEARCH") return await runSearch(call.arg);
+  if(call.kind==="FETCH")  return await runFetch(call.arg);
+  if(call.kind==="KB")     return kbSearch(call.arg);
+  if(call.kind==="KB-SAVE"){
+    const i=call.arg.indexOf("|");
+    if(i<0) return "Format: [[KB-SAVE: title | body]]";
+    const e=kbSave(call.arg.slice(0,i).trim(),call.arg.slice(i+1).trim(),
+      (activeModel()||{model:"model"}).model);
+    if(S.kb.gistId&&S.kb.token) kbPush().catch(()=>{});
+    return "Saved to knowledge base as \u201c"+e.title+"\u201d.";
+  }
+  return "Unknown tool";
+}
+
+/* ============================ API ADAPTERS ============================ */
+function buildPayload(mdl,msgs,sys,p,stream){
+  const st=PROVIDERS[mdl.provider].style;
+  const native=webMode()==="native"?NATIVE[mdl.provider]:null;
+  if(st==="anthropic"){
+    return {model:mdl.model,max_tokens:p.max_tokens,temperature:p.temperature,top_p:p.top_p,
+      tools:native?[{type:"web_search_20250305",name:"web_search",max_uses:S.tools.maxCalls}]:undefined,
+      system:sys||undefined,stream,
+      messages:msgs.map(m=>({role:m.role==="assistant"?"assistant":"user",
+        content:m.images&&m.images.length
+          ? [...m.images.map(d=>({type:"image",source:{type:"base64",
+              media_type:d.slice(5,d.indexOf(";")),data:d.slice(d.indexOf(",")+1)}})),
+             {type:"text",text:m.content||" "}]
+          : m.content}))};
+  }
+  const out=[];
+  if(sys) out.push({role:"system",content:sys});
+  for(const m of msgs){
+    if(m.images&&m.images.length){
+      out.push({role:m.role,content:[{type:"text",text:m.content||" "},
+        ...m.images.map(d=>({type:"image_url",image_url:{url:d}}))]});
+    } else out.push({role:m.role,content:m.content});
+  }
+  const body={model:mdl.model,messages:out,temperature:p.temperature,top_p:p.top_p,
+    max_tokens:p.max_tokens,stream};
+  if(native==="online"&&!/:online$/.test(body.model)) body.model+=":online";
+  if(native==="options"){ body.web_search_options={}; delete body.temperature; delete body.top_p; }
+  return body;
+}
+function endpoint(mdl){
+  const base=(mdl.base||PROVIDERS[mdl.provider].base||"").replace(/\/$/,"");
+  return base+(PROVIDERS[mdl.provider].style==="anthropic"?"/messages":"/chat/completions");
+}
+function headers(mdl,k){
+  const h={"Content-Type":"application/json"};
+  if(PROVIDERS[mdl.provider].style==="anthropic"){
+    h["x-api-key"]=k; h["anthropic-version"]="2023-06-01";
+    h["anthropic-dangerous-direct-browser-access"]="true";
+  } else h["Authorization"]="Bearer "+k;
+  return h;
+}
+/* streams tokens to onDelta; returns full text */
+async function callModel(mdl,msgs,sys,p,onDelta,signal){
+  const kk=keyById(mdl.keyId);
+  if(!kk||!kk.key) throw new Error("No API key attached to this model. Open Menu → Keys.");
+  const stream=S.stream;
+  const res=await fetch(endpoint(mdl),{method:"POST",signal,headers:headers(mdl,kk.key),
+    body:JSON.stringify(buildPayload(mdl,msgs,sys,p,stream))});
+  if(!res.ok){
+    let d=""; try{d=(await res.text()).slice(0,400);}catch(e){}
+    throw new Error(`${res.status} ${res.statusText}\n${d}`);
+  }
+  if(!stream){
+    const j=await res.json();
+    const t=PROVIDERS[mdl.provider].style==="anthropic"
+      ? (j.content||[]).map(c=>c.text||"").join("")
+      : (j.choices&&j.choices[0].message.content)||"";
+    onDelta(t); return t;
+  }
+  const rd=res.body.getReader(), dec=new TextDecoder();
+  let buf="", full="";
+  for(;;){
+    const {done,value}=await rd.read(); if(done) break;
+    buf+=dec.decode(value,{stream:true});
+    const lines=buf.split("\n"); buf=lines.pop();
+    for(const ln of lines){
+      const s=ln.trim(); if(!s.startsWith("data:")) continue;
+      const data=s.slice(5).trim(); if(data==="[DONE]") continue;
+      let j; try{j=JSON.parse(data);}catch(e){continue;}
+      let piece="";
+      if(j.type==="content_block_delta") piece=j.delta&&j.delta.text||"";
+      else if(j.choices&&j.choices[0]) piece=(j.choices[0].delta&&j.choices[0].delta.content)||"";
+      if(piece){full+=piece;onDelta(piece);}
+    }
+  }
+  return full;
+}
+
+/* ============================ MARKDOWN + CODE WINDOWS ============================ */
+let CODE=[];   // {id,lang,name,src} for the download drawer
+function highlight(src,lang){
+  let h=esc(src);
+  h=h.replace(/(&quot;|&#39;|`)(?:\\.|(?!\1)[^\\\n])*\1/g,m=>`<span class="tok-s">${m}</span>`);
+  h=h.replace(/(^|\n)(\s*)(#|\/\/)([^\n]*)/g,(m,a,b,c,d)=>`${a}${b}<span class="tok-c">${c}${d}</span>`);
+  h=h.replace(/\/\*[\s\S]*?\*\//g,m=>`<span class="tok-c">${m}</span>`);
+  h=h.replace(/\b(function|const|let|var|return|if|else|for|while|class|import|from|export|def|async|await|new|try|catch|then|elif|print|self|this|public|void|int|float|true|false|null|None|True|False)\b/g,
+    '<span class="tok-k">$1</span>');
+  h=h.replace(/\b(\d+(?:\.\d+)?)\b/g,'<span class="tok-n">$1</span>');
+  return h;
+}
+const EXT={javascript:"js",js:"js",typescript:"ts",python:"py",html:"html",css:"css",json:"json",
+  bash:"sh",sh:"sh",shell:"sh",java:"java",c:"c",cpp:"cpp",rust:"rs",go:"go",sql:"sql",
+  yaml:"yml",markdown:"md",md:"md",xml:"xml",php:"php",ruby:"rb",swift:"swift",kotlin:"kt"};
+function codeBlock(src,info){
+  const bits=(info||"").trim().split(/\s+/);
+  const lang=(bits[0]||"text").toLowerCase();
+  let name=bits.slice(1).join(" ").replace(/[:"']/g,"").trim();
+  if(!name){
+    const m=src.match(/(?:^|\n)\s*(?:\/\/|#|<!--)\s*([\w.\-]+\.[a-z0-9]{1,5})/i);
+    name=m?m[1]:"snippet-"+(CODE.length+1)+"."+(EXT[lang]||"txt");
+  }
+  const id="c"+CODE.length; CODE.push({id,lang,name,src});
+  return `<div class="code"><div class="bar"><span>${esc(lang)}</span>`+
+    `<span class="nm">${esc(name)}</span>`+
+    `<button data-copy="${id}">copy</button><button data-dl="${id}">download</button></div>`+
+    `<pre><code>${highlight(src,lang)}</code></pre></div>`;
+}
+function md(text){
+  const holds=[];
+  text=text.replace(/```([^\n]*)\n([\s\S]*?)```/g,(m,info,code)=>{
+    holds.push(codeBlock(code.replace(/\n$/,""),info)); return `\u0000${holds.length-1}\u0000`;});
+  text=text.replace(/```([^\n]*)\n([\s\S]*)$/,(m,info,code)=>{   // unterminated (streaming)
+    holds.push(codeBlock(code,info)); return `\u0000${holds.length-1}\u0000`;});
+  let h=esc(text);
+  h=h.replace(/`([^`\n]+)`/g,'<code class="inl">$1</code>');
+  h=h.replace(/^\s*&gt;\s?(.*)$/gm,"<blockquote>$1</blockquote>");
+  h=h.replace(/^###\s+(.*)$/gm,"<h3>$1</h3>").replace(/^##\s+(.*)$/gm,"<h2>$1</h2>")
+     .replace(/^#\s+(.*)$/gm,"<h1>$1</h1>");
+  h=h.replace(/^\s*([-*_]){3,}\s*$/gm,"<hr>");
+  h=h.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>").replace(/(^|\W)\*([^*\n]+)\*/g,"$1<em>$2</em>");
+  h=h.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  h=h.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g,'$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  h=h.replace(/(?:^\s*[-*+]\s+.*(?:\n|$))+/gm,b=>"<ul>"+b.trim().split("\n")
+      .map(l=>"<li>"+l.replace(/^\s*[-*+]\s+/,"")+"</li>").join("")+"</ul>");
+  h=h.replace(/(?:^\s*\d+\.\s+.*(?:\n|$))+/gm,b=>"<ol>"+b.trim().split("\n")
+      .map(l=>"<li>"+l.replace(/^\s*\d+\.\s+/,"")+"</li>").join("")+"</ol>");
+  h=h.split(/\n{2,}/).map(p=>/^\s*<(h\d|ul|ol|blockquote|hr|div|pre)/.test(p)?p:"<p>"+p.replace(/\n/g,"<br>")+"</p>").join("");
+  return h.replace(/\u0000(\d+)\u0000/g,(m,i)=>holds[+i]);
+}
+
+/* ============================ RENDER ============================ */
+function routeLine(){
+  const m=activeModel(), p=activePreset();
+  $("routetxt").innerHTML = m
+    ? `${p?`<b>${esc(p.name)}</b> <span class="sep">›</span> `:""}${esc(PROVIDERS[m.provider].name)} <span class="sep">›</span> <b>${esc(m.model)}</b>`
+    : "no model set — open ☰ to add one";
+}
+function render(){
+  routeLine(); CODE=[]; ensureTabs(); renderTabs();
+  const T=activeTab();
+  if(T&&T.kind==="web"){ $("log").hidden=true; $("web").hidden=false; renderWeb(T); renderQuick(); return; }
+  $("web").hidden=true; $("log").hidden=false;
+  const c=chat(), log=$("log");
+  if(!c.msgs.length){
+    log.innerHTML=`<div class="empty"><b>CONDUIT</b>
+      your keys, your browser, your models.<br>nothing leaves this file except the call itself.
+      <br><br>${activeModel()?"ready — type below":"start: ☰ → Keys → Models"}</div>`;
+  } else {
+    log.innerHTML=c.msgs.map(mm=>msgHTML(mm)).join("");
+  }
+  renderQuick(); scrollDown();
+}
+function msgHTML(m){
+  const who=m.role==="user"?"YOU":m.role==="tool"?"TOOL":(activePreset()?activePreset().name.toUpperCase():"MODEL");
+  const cls=m.role+(m.error?" error":"");
+  const imgs=(m.images||[]).map(d=>`<img class="att" src="${d}">`).join("");
+  const body=m.role==="tool"?esc(m.content).slice(0,900):md(m.content||"");
+  const acts=m.role==="user"
+    ? `<button data-edit="${m.id}">edit</button><button data-del="${m.id}">delete</button>`
+    : m.role==="assistant"
+    ? `<button data-retry="${m.id}">retry</button><button data-copym="${m.id}">copy</button><button data-del="${m.id}">delete</button>`
+    : `<button data-del="${m.id}">delete</button>`;
+  return `<div class="msg ${cls}" data-id="${m.id}"><div class="who">${esc(who)}</div>
+    <div class="bubble">${imgs}${body}</div><div class="acts">${acts}</div></div>`;
+}
+function scrollDown(){const l=$("log");l.scrollTop=l.scrollHeight;}
+function renderQuick(){
+  const q=$("quick");
+  const items=[`<button data-q="new">+ new thread</button>`,
+    `<button data-q="web">+ web tab</button>`,
+    `<button data-q="kb" class="${S.kb.on?"on":""}">knowledge ${S.kb.on?"on":"off"}</button>`,
+    `<button data-q="search" class="${webMode()!=="off"?"on":""}">web ${
+      webMode()==="native"?"on":webMode()==="relay"?"relay":S.tools.mode==="native"?"n/a":"off"}</button>`];
+  S.presets.slice(0,6).forEach(p=>items.push(
+    `<button data-preset="${p.id}" class="${p.id===S.activePreset?"on":""}">${esc(p.name)}</button>`));
+  q.innerHTML=items.join("");
+}
+
+/* ============================ SEND LOOP ============================ */
+let ABORT=null, BUSY=false, atts=[];
+function setBusy(b){BUSY=b;$("send").textContent=b?"■":"↑";$("send").classList.toggle("stop",b);
+  $("route").classList.toggle("live",b);}
+function systemPrompt(){
+  const p=activePreset(); let s=p&&p.system?p.system:"";
+  const wm=webMode();
+  if(wm==="relay") s=(s?s+"\n\n":"")+WEB_PROMPT;
+  if(wm==="native") s=(s?s+"\n\n":"")+NATIVE_PROMPT;
+  if(S.kb.on) s=(s?s+"\n\n":"")+KB_PROMPT+"\n\nKnowledge base index:\n"+kbIndex();
+  return s;
+}
+function paramsNow(){const p=activePreset(); return Object.assign({},S.params,(p&&p.params)||{});}
+
+async function send(text){
+  const T=activeTab(); if(T&&T.kind!=="chat") focusChat(chat().id);
+  const m=activeModel();
+  if(!m){openSheet("models");return toast("Pick a model first");}
+  const c=chat();
+  if(text!==null){
+    c.msgs.push({id:uid(),role:"user",content:text,images:atts.slice()});
+    atts=[];renderAtts();
+    if(c.title==="New thread") c.title=text.slice(0,40)||"New thread";
+  }
+  save(); render(); await generate();
+}
+async function generate(){
+  const c=chat(), m=activeModel();
+  setBusy(true); ABORT=new AbortController();
+  let holder=null, calls=0;
+  const paint=()=>{const el=holder&&$("log").querySelector(`[data-id="${holder.id}"] .bubble`);
+    if(el){el.innerHTML=md(holder.content)+'<span class="cursor"></span>';scrollDown();}};
+  try{
+    for(;;){
+      holder={id:uid(),role:"assistant",content:""};
+      c.msgs.push(holder); render();
+      const hist=(S.sendHistory?c.msgs.slice(0,-1):c.msgs.slice(-2,-1))
+        .map(x=>({role:x.role==="tool"?"user":x.role,content:x.content,images:x.images}));
+      await callModel(m,hist,systemPrompt(),paramsNow(),
+        d=>{holder.content+=d;paint();},ABORT.signal);
+      const call=findToolCall(holder.content);
+      if(!call||calls>=S.tools.maxCalls) break;
+      calls++;
+      const t={id:uid(),role:"tool",content:`${call.kind} \u2192 ${call.arg}\nrunning\u2026`};
+      c.msgs.push(t); render();
+      try{
+        const out=await runTool(call);
+        t.content=`${call.kind} \u2192 ${call.arg}\n\n${out}`;
+      }catch(e){t.content=`${call.kind} \u2192 ${call.arg}\n\nFAILED: ${e.message}`;}
+      save(); render();
+    }
+  }catch(e){
+    if(holder){
+      if(e.name==="AbortError") holder.content=(holder.content||"")+"\n\n_(stopped)_";
+      else{holder.error=true;holder.content="Request failed: "+e.message+
+        "\n\nCheck the model id, the key attached to it, and whether that provider allows browser calls.";}
+    }
+  }
+  setBusy(false); ABORT=null;
+  if(holder&&!holder.content) c.msgs=c.msgs.filter(x=>x!==holder);
+  save(); render();
+}
+
+/* ============================ ATTACHMENTS ============================ */
+function renderAtts(){
+  $("atts").innerHTML=atts.map((d,i)=>
+    `<div class="thumb"><img src="${d}"><button class="x" data-rmatt="${i}">✕</button></div>`).join("");
+}
+$("btnImg").onclick=()=>$("file").click();
+$("file").onchange=async e=>{
+  for(const f of e.target.files){
+    try{atts.push(await ingestImage(f));}catch(err){toast(err.message);}
+  }
+  e.target.value=""; renderAtts();
+  if(S.stripMeta) toast("Metadata stripped");
+};
+$("atts").onclick=e=>{const b=e.target.closest("[data-rmatt]");
+  if(b){atts.splice(+b.dataset.rmatt,1);renderAtts();}};
+
+/* ============================ COMPOSER ============================ */
+const inp=$("input");
+inp.addEventListener("input",()=>{inp.style.height="auto";inp.style.height=Math.min(inp.scrollHeight,320)+"px";});
+inp.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();$("send").click();}});
+$("send").onclick=()=>{
+  if(BUSY){ABORT&&ABORT.abort();return;}
+  const t=inp.value.trim();
+  if(!t&&!atts.length) return;
+  inp.value="";inp.style.height="auto";
+  send(t);
+};
+$("quick").onclick=e=>{
+  const q=e.target.closest("[data-q]"), p=e.target.closest("[data-preset]");
+  if(q&&q.dataset.q==="new") newChat();
+  if(q&&q.dataset.q==="search"){
+    S.tools.mode=S.tools.mode==="off"?"native":S.tools.mode==="native"?"relay":"off";
+    save();renderQuick();
+    toast(S.tools.mode==="off"?"Web off"
+      :S.tools.mode==="native"?(nativeOK(activeModel())?"Using this provider's own search"
+        :"This provider has no built-in search — tap again for the relay")
+      :"Using the reader relay");}
+  if(q&&q.dataset.q==="web") openWebTab("");
+  if(q&&q.dataset.q==="kb"){S.kb.on=!S.kb.on;save();renderQuick();
+    toast("Knowledge base "+(S.kb.on?"on":"off"));}
+  if(p){S.activePreset=S.activePreset===p.dataset.preset?null:p.dataset.preset;
+    const pr=activePreset(); if(pr&&pr.modelId&&modelById(pr.modelId)) S.activeModel=pr.modelId;
+    save();render();}
+};
+
+/* ============================ MESSAGE ACTIONS ============================ */
+$("log").addEventListener("click",e=>{
+  const c=chat();
+  const g=a=>e.target.closest(`[data-${a}]`);
+  let b;
+  if(b=g("copy")){const f=CODE.find(x=>x.id===b.dataset.copy);
+    navigator.clipboard.writeText(f.src).then(()=>toast("Copied"),()=>toast("Clipboard blocked"));return;}
+  if(b=g("dl")){const f=CODE.find(x=>x.id===b.dataset.dl);download(f.name,f.src);return;}
+  if(b=g("copym")){const m=c.msgs.find(x=>x.id===b.dataset.copym);
+    navigator.clipboard.writeText(m.content).then(()=>toast("Copied"),()=>toast("Clipboard blocked"));return;}
+  if(b=g("del")){c.msgs=c.msgs.filter(x=>x.id!==b.dataset.del);save();render();return;}
+  if(b=g("retry")){const i=c.msgs.findIndex(x=>x.id===b.dataset.retry);
+    if(i<0||BUSY)return; c.msgs=c.msgs.slice(0,i); save(); render(); generate(); return;}
+  if(b=g("edit")){startEdit(b.dataset.edit);return;}
+  if(b=g("saveedit")){
+    const id=b.dataset.saveedit, i=c.msgs.findIndex(x=>x.id===id);
+    const ta=$("log").querySelector(`[data-id="${id}"] textarea`);
+    c.msgs[i].content=ta.value; c.msgs=c.msgs.slice(0,i+1); save(); render();
+    if(b.dataset.resend==="1") generate(); return;}
+  if(b=g("canceledit")){render();return;}
+});
+function startEdit(id){
+  const m=chat().msgs.find(x=>x.id===id);
+  const el=$("log").querySelector(`[data-id="${id}"]`);
+  el.querySelector(".bubble").innerHTML=
+    `<textarea class="f" style="width:100%">${esc(m.content)}</textarea>`;
+  el.querySelector(".acts").innerHTML=
+    `<button data-saveedit="${id}" data-resend="1">save &amp; resend</button>
+     <button data-saveedit="${id}" data-resend="0">save only</button>
+     <button data-canceledit="1">cancel</button>`;
+}
+function download(name,text){
+  const b=new Blob([text],{type:"text/plain"}), u=URL.createObjectURL(b);
+  const a=document.createElement("a"); a.href=u; a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(u),4000);
+}
+
+/* ============================ SHEETS ============================ */
+function closeSheet(){$("sheet").classList.remove("open");}
+$("sheet").onclick=e=>{if(e.target.id==="sheet")closeSheet();};
+$("btnMenu").onclick=()=>openSheet("menu");
+$("btnFiles").onclick=()=>openSheet("files");
+
+function openSheet(view,arg){
+  const B=$("sheetBody");
+  B.innerHTML=VIEWS[view](arg);
+  $("sheet").classList.add("open");
+  B.scrollTop=0;
+  wire(view,arg);
+}
+const VIEWS={};
+
+VIEWS.menu=()=>`<h2>Menu</h2>
+<div class="list">
+  <button class="btn" data-go="models">Models &amp; routing</button>
+  <button class="btn" data-go="keys">API keys</button>
+  <button class="btn" data-go="presets">Setups &amp; characters</button>
+  <button class="btn" data-go="params">Generation settings</button>
+  <button class="btn" data-go="tools">Web access</button>
+  <button class="btn" data-go="chats">Threads</button>
+  <button class="btn" data-go="links">Bookmarks &amp; pins</button>
+  <button class="btn" data-go="kb">Knowledge base</button>
+  <button class="btn" data-go="files">Files in this thread</button>
+  <button class="btn" data-go="data">Theme, privacy, backup</button>
+</div>`;
+
+VIEWS.keys=()=>`<h2>API keys</h2>
+<p class="hint">Keys live in this browser's local storage and are sent straight to the provider you
+picked over HTTPS. No server of mine sits in between — but the provider itself always sees the key,
+that's how it authenticates you. Anyone with your unlocked phone can read them.</p>
+<div class="list" id="keyList">${S.keys.map(k=>`<div class="item"><div class="t"><b>${esc(k.label)}</b>
+  <small>${esc(PROVIDERS[k.provider].name)} · ${esc(k.key.slice(0,6))}…${esc(k.key.slice(-4))}</small></div>
+  <button class="btn dan" data-delkey="${k.id}">del</button></div>`).join("")||'<p class="hint">None yet.</p>'}</div>
+<h3>Add a key</h3>
+<label class="f"><span>Label</span><input type="text" id="kLabel" placeholder="HF Pro"></label>
+<label class="f"><span>Provider</span><select id="kProv">${Object.entries(PROVIDERS)
+  .map(([id,p])=>`<option value="${id}">${p.name}</option>`).join("")}</select></label>
+<label class="f"><span>Key</span><input type="password" id="kVal" placeholder="hf_… / sk-… / AIza…"></label>
+<button class="btn pri" id="kAdd">Save key</button>`;
+
+VIEWS.models=()=>`<h2>Models &amp; routing</h2>
+<div class="list">${S.models.map(m=>`<div class="item ${m.id===S.activeModel?"sel":""}">
+  <div class="t" data-usemodel="${m.id}"><b>${esc(m.label||m.model)}</b>
+  <small>${esc(PROVIDERS[m.provider].name)} · ${esc(m.model)} · ${esc((keyById(m.keyId)||{label:"NO KEY"}).label)}</small></div>
+  <button class="btn dan" data-delmodel="${m.id}">del</button></div>`).join("")
+  ||'<p class="hint">No models saved. Add one below — tap a saved model to route to it.</p>'}</div>
+<h3>Add a model</h3>
+<label class="f"><span>Provider</span><select id="mProv">${Object.entries(PROVIDERS)
+  .map(([id,p])=>`<option value="${id}">${p.name}</option>`).join("")}</select></label>
+<label class="f"><span>Model id</span><input type="text" id="mId"
+  placeholder="meta-llama/Llama-3.3-70B-Instruct"></label>
+<label class="f"><span>Nickname (optional)</span><input type="text" id="mLabel"></label>
+<label class="f"><span>Key</span><select id="mKey">${S.keys.map(k=>
+  `<option value="${k.id}">${esc(k.label)} (${esc(PROVIDERS[k.provider].name)})</option>`).join("")
+  ||'<option value="">— add a key first —</option>'}</select></label>
+<label class="f"><span>Base URL override (custom endpoints only)</span>
+  <input type="text" id="mBase" placeholder="https://…/v1"></label>
+<div class="row"><button class="btn" id="mFetch">List available</button>
+<button class="btn pri" id="mAdd">Save model</button></div>
+<div id="mList" class="list" style="margin-top:8px"></div>
+<p class="hint">Hugging Face: use the full repo id of any model served by an inference provider,
+e.g. <code class="inl">Qwen/Qwen2.5-72B-Instruct</code>. "List available" pulls the current
+warm/served list from the provider when it allows it.</p>`;
+
+VIEWS.presets=(editId)=>{
+  const p=editId?S.presets.find(x=>x.id===editId):null;
+  return `<h2>Setups &amp; characters</h2>
+  <div class="list">${S.presets.map(x=>`<div class="item ${x.id===S.activePreset?"sel":""}">
+    <div class="t" data-usepreset="${x.id}"><b>${esc(x.name)}</b>
+    <small>${esc((modelById(x.modelId)||{model:"uses current model"}).model)}</small></div>
+    <button class="btn" data-editpreset="${x.id}">edit</button>
+    <button class="btn dan" data-delpreset="${x.id}">del</button></div>`).join("")
+    ||'<p class="hint">None yet. A setup is a name + system prompt + model + settings — use it for agents, characters, or a writing voice.</p>'}</div>
+  <h3>${p?"Edit setup":"New setup"}</h3>
+  <input type="hidden" id="pId" value="${p?p.id:""}">
+  <label class="f"><span>Name</span><input type="text" id="pName" value="${p?esc(p.name):""}"></label>
+  <label class="f"><span>System prompt / character sheet</span>
+    <textarea class="f" id="pSys" placeholder="You are…">${p?esc(p.system):""}</textarea></label>
+  <label class="f"><span>Model</span><select id="pModel"><option value="">— current model —</option>
+    ${S.models.map(m=>`<option value="${m.id}" ${p&&p.modelId===m.id?"selected":""}>${esc(m.label||m.model)}</option>`).join("")}
+  </select></label>
+  <div class="row">
+    <label class="f"><span>Temp</span><input type="number" step="0.05" id="pTemp"
+      value="${p&&p.params?p.params.temperature:""}" placeholder="default"></label>
+    <label class="f"><span>Max tokens</span><input type="number" id="pMax"
+      value="${p&&p.params?p.params.max_tokens:""}" placeholder="default"></label>
+  </div>
+  <button class="btn pri" id="pSave">${p?"Update setup":"Save setup"}</button>`;
+};
+
+VIEWS.params=()=>`<h2>Generation settings</h2>
+<label class="f"><span>Temperature — ${S.params.temperature}</span>
+  <input type="range" min="0" max="2" step="0.05" id="sTemp" value="${S.params.temperature}"></label>
+<label class="f"><span>Top-p — ${S.params.top_p}</span>
+  <input type="range" min="0.05" max="1" step="0.05" id="sTop" value="${S.params.top_p}"></label>
+<label class="f"><span>Max output tokens</span>
+  <input type="number" id="sMax" value="${S.params.max_tokens}"></label>
+<div class="sw"><div class="lbl">Stream replies<small>Token by token as they arrive</small></div>
+  <input type="checkbox" id="sStream" ${S.stream?"checked":""}></div>
+<div class="sw"><div class="lbl">Send full history<small>Off = only your last message goes out</small></div>
+  <input type="checkbox" id="sHist" ${S.sendHistory?"checked":""}></div>`;
+
+VIEWS.tools=()=>{
+  const m=activeModel(), ok=nativeOK(m);
+  return `<h2>Web access</h2>
+<div class="list">
+  <div class="item ${S.tools.mode==="off"?"sel":""}" data-mode="off"><div class="t">
+    <b>Off</b><small>model answers from what it already knows</small></div></div>
+  <div class="item ${S.tools.mode==="native"?"sel":""}" data-mode="native"><div class="t">
+    <b>Provider's own search</b><small>search runs inside the same API call — no extra service involved</small></div></div>
+  <div class="item ${S.tools.mode==="relay"?"sel":""}" data-mode="relay"><div class="t">
+    <b>Reader relay</b><small>works with any model, routes queries through jina.ai</small></div></div>
+</div>
+<p class="hint">${m?(ok?`<b>${esc(PROVIDERS[m.provider].name)}</b> searches on its own servers, so
+  "provider's own search" is the clean option for your current model.`
+  :`<b>${esc(PROVIDERS[m.provider].name)}</b> has no built-in search, so on this model "provider's own
+  search" quietly does nothing. Hugging Face serves raw models with no search attached — for those the
+  relay is the only way to get live links, or route to Claude/OpenRouter when you want sources.`)
+  :"Route to a model first."}</p>
+<h3>Who has it built in</h3>
+<p class="hint">Anthropic (any Claude model) · OpenRouter (add :online, done automatically) ·
+OpenAI (the gpt-4o-search-preview models only). Hugging Face, Gemini's compatibility endpoint and
+custom endpoints don't.</p>
+<h3>Relay settings</h3>
+<label class="f"><span>Backend</span><select id="tBackend">
+  <option value="jina" ${S.tools.backend==="jina"?"selected":""}>DuckDuckGo via r.jina.ai (no key)</option>
+  <option value="tavily" ${S.tools.backend==="tavily"?"selected":""}>Tavily (your own key, direct)</option>
+</select></label>
+<label class="f"><span>Tavily key</span><input type="password" id="tKey" value="${esc(S.tools.tavily)}"></label>
+<label class="f"><span>Max searches per reply</span>
+  <input type="number" id="tMax" value="${S.tools.maxCalls}" min="1" max="8"></label>
+<p class="hint">Web tabs always use the relay — that's the only way a page can be pulled in and read
+from inside a browser. This setting only controls what happens in chat.</p>`;
+};
+
+VIEWS.chats=()=>`<h2>Threads</h2>
+<button class="btn pri" data-go="newchat">New thread</button>
+<div class="list" style="margin-top:10px">${S.chats.map(c=>`<div class="item ${c.id===S.activeChat?"sel":""}">
+  <div class="t" data-usechat="${c.id}"><b>${esc(c.title)}</b><small>${c.msgs.length} messages</small></div>
+  <button class="btn dan" data-delchat="${c.id}">del</button></div>`).join("")}</div>`;
+
+VIEWS.files=()=>{
+  render();
+  return `<h2>Files in this thread</h2>${CODE.length?
+   `<div class="list">${CODE.map(f=>`<div class="item"><div class="t"><b>${esc(f.name)}</b>
+     <small>${esc(f.lang)} · ${f.src.split("\n").length} lines</small></div>
+     <button class="btn" data-dlf="${f.id}">save</button></div>`).join("")}</div>
+    <button class="btn pri" id="dlAll" style="margin-top:10px">Download all ${CODE.length}</button>`
+   :'<p class="hint">Every code block the model writes shows up here with a save button.</p>'}`;
+};
+
+VIEWS.data=()=>`<h2>Theme, privacy, backup</h2>
+<div class="sw"><div class="lbl">Light theme</div>
+  <input type="checkbox" id="dTheme" ${S.theme==="light"?"checked":""}></div>
+<div class="sw"><div class="lbl">Strip image metadata<small>Re-encodes through a canvas, so EXIF and GPS never leave</small></div>
+  <input type="checkbox" id="dStrip" ${S.stripMeta?"checked":""}></div>
+<label class="f"><span>Max image edge (px)</span><input type="number" id="dPx" value="${S.maxImgPx}"></label>
+<h3>Backup</h3>
+<div class="row"><button class="btn" id="dExp">Export all</button>
+<button class="btn" id="dImp">Import</button></div>
+<button class="btn dan" id="dWipe" style="margin-top:8px">Erase everything</button>
+<p class="hint">Export includes your keys — treat the file like a password. Everything here is stored
+only in this browser; clearing site data or opening the file from a different folder starts you fresh.</p>`;
+
+/* ============================ SHEET WIRING ============================ */
+function wire(view){
+  const B=$("sheetBody");
+  B.onclick=e=>{
+    const go=e.target.closest("[data-go]");
+    if(go){
+      if(go.dataset.go==="newchat"){newChat();return;}
+      if(go.dataset.go==="newweb"){closeSheet();openWebTab("");return;}
+      openSheet(go.dataset.go); return; }
+    let b;
+    if(b=e.target.closest("[data-delkey]")){S.keys=S.keys.filter(k=>k.id!==b.dataset.delkey);save();openSheet("keys");return;}
+    if(b=e.target.closest("[data-usemodel]")){S.activeModel=b.dataset.usemodel;save();render();closeSheet();toast("Routed");return;}
+    if(b=e.target.closest("[data-delmodel]")){S.models=S.models.filter(m=>m.id!==b.dataset.delmodel);
+      if(S.activeModel===b.dataset.delmodel)S.activeModel=null;save();openSheet("models");render();return;}
+    if(b=e.target.closest("[data-usepreset]")){S.activePreset=b.dataset.usepreset;
+      const p=activePreset(); if(p&&p.modelId&&modelById(p.modelId))S.activeModel=p.modelId;
+      save();render();closeSheet();return;}
+    if(b=e.target.closest("[data-editpreset]")){openSheet("presets",b.dataset.editpreset);return;}
+    if(b=e.target.closest("[data-delpreset]")){S.presets=S.presets.filter(p=>p.id!==b.dataset.delpreset);
+      if(S.activePreset===b.dataset.delpreset)S.activePreset=null;save();openSheet("presets");render();return;}
+    if(b=e.target.closest("[data-usechat]")){focusChat(b.dataset.usechat);closeSheet();return;}
+    if(b=e.target.closest("[data-delchat]")){S.chats=S.chats.filter(c=>c.id!==b.dataset.delchat);
+      if(S.activeChat===b.dataset.delchat)S.activeChat=S.chats.length?S.chats[0].id:null;
+      save();openSheet("chats");render();return;}
+    if(b=e.target.closest("[data-dlf]")){const f=CODE.find(x=>x.id===b.dataset.dlf);download(f.name,f.src);return;}
+    if(b=e.target.closest("[data-openlink]")){const l=S.links.find(x=>x.id===b.dataset.openlink);
+      closeSheet();openWebTab(l.url);return;}
+    if(b=e.target.closest("[data-pinlink]")){const l=S.links.find(x=>x.id===b.dataset.pinlink);
+      l.pinned=!l.pinned;save();openSheet("links");return;}
+    if(b=e.target.closest("[data-dellink]")){S.links=S.links.filter(x=>x.id!==b.dataset.dellink);
+      save();openSheet("links");return;}
+    if(b=e.target.closest("[data-delkb]")){S.kb.entries=S.kb.entries.filter(x=>x.id!==b.dataset.delkb);
+      save();openSheet("kb");return;}
+    if(b=e.target.closest("[data-mode]")){S.tools.mode=b.dataset.mode;save();openSheet("tools");
+      renderQuick();return;}
+    if(b=e.target.closest("[data-pick]")){const el=$("mId"); if(el){el.value=b.dataset.pick;toast("Filled in");}return;}
+  };
+
+  if(view==="keys") $("kAdd").onclick=()=>{
+    const label=$("kLabel").value.trim(), key=$("kVal").value.trim();
+    if(!key) return toast("Paste a key first");
+    S.keys.push({id:uid(),label:label||PROVIDERS[$("kProv").value].name,provider:$("kProv").value,key});
+    save(); openSheet("keys"); toast("Key saved");
+  };
+
+  if(view==="models"){
+    $("mAdd").onclick=()=>{
+      const model=$("mId").value.trim(); if(!model) return toast("Model id required");
+      const keyId=$("mKey").value; if(!keyId) return toast("Add a key first");
+      S.models.push({id:uid(),provider:$("mProv").value,model,label:$("mLabel").value.trim(),
+        keyId,base:$("mBase").value.trim()});
+      S.activeModel=S.models[S.models.length-1].id;
+      save(); openSheet("models"); render(); toast("Model saved and routed");
+    };
+    $("mFetch").onclick=async()=>{
+      const prov=$("mProv").value, out=$("mList"); out.innerHTML='<p class="hint">Loading…</p>';
+      try{
+        let names=[];
+        if(prov==="hf"){
+          const r=await fetch("https://huggingface.co/api/models?inference_provider=all&pipeline_tag=text-generation&sort=trendingScore&limit=60");
+          if(!r.ok) throw new Error("HF "+r.status);
+          names=(await r.json()).map(m=>m.id||m.modelId);
+        }else{
+          const k=keyById($("mKey").value); if(!k) throw new Error("Pick a key first");
+          const base=($("mBase").value.trim()||PROVIDERS[prov].base).replace(/\/$/,"");
+          const r=await fetch(base+"/models",{headers:headers({provider:prov},k.key)});
+          if(!r.ok) throw new Error(r.status+" "+r.statusText);
+          const j=await r.json();
+          names=(j.data||j.models||[]).map(m=>m.id||m.name).filter(Boolean);
+        }
+        out.innerHTML=names.length?names.map(n=>
+          `<div class="item"><div class="t"><b>${esc(n)}</b></div>
+           <button class="btn" data-pick="${esc(n)}">use</button></div>`).join("")
+          :'<p class="hint">Provider returned no list. Type the model id by hand.</p>';
+      }catch(err){out.innerHTML=`<p class="hint">Couldn't list models: ${esc(err.message)}. Type the id by hand — that always works.</p>`;}
+    };
+  }
+
+  if(view==="presets") $("pSave").onclick=()=>{
+    const name=$("pName").value.trim(); if(!name) return toast("Name it first");
+    const params={}; const t=parseFloat($("pTemp").value), mx=parseInt($("pMax").value,10);
+    if(!isNaN(t)) params.temperature=t; if(!isNaN(mx)) params.max_tokens=mx;
+    const id=$("pId").value;
+    const data={name,system:$("pSys").value,modelId:$("pModel").value||null,
+      params:Object.keys(params).length?params:null};
+    if(id){Object.assign(S.presets.find(p=>p.id===id),data);}
+    else {data.id=uid(); S.presets.push(data); S.activePreset=data.id;}
+    save(); openSheet("presets"); render(); toast("Setup saved");
+  };
+
+  if(view==="params"){
+    $("sTemp").oninput=e=>{S.params.temperature=+e.target.value;save();
+      e.target.previousElementSibling.textContent="Temperature — "+e.target.value;};
+    $("sTop").oninput=e=>{S.params.top_p=+e.target.value;save();
+      e.target.previousElementSibling.textContent="Top-p — "+e.target.value;};
+    $("sMax").onchange=e=>{S.params.max_tokens=parseInt(e.target.value,10)||1024;save();};
+    $("sStream").onchange=e=>{S.stream=e.target.checked;save();};
+    $("sHist").onchange=e=>{S.sendHistory=e.target.checked;save();};
+  }
+
+  if(view==="tools"){
+    $("tBackend").onchange=e=>{S.tools.backend=e.target.value;save();};
+    $("tKey").onchange=e=>{S.tools.tavily=e.target.value.trim();save();};
+    $("tMax").onchange=e=>{S.tools.maxCalls=Math.max(1,parseInt(e.target.value,10)||3);save();};
+  }
+
+  if(view==="files"&&CODE.length) $("dlAll").onclick=()=>{
+    CODE.forEach((f,i)=>setTimeout(()=>download(f.name,f.src),i*350));
+    toast("Saving "+CODE.length+" files");
+  };
+
+  if(view==="links") $("lAdd").onclick=()=>{
+    const url=$("lUrl").value.trim(); if(!url) return toast("URL required");
+    S.links.unshift({id:uid(),url:/^https?:/i.test(url)?url:"https://"+url,
+      title:$("lTitle").value.trim(),tags:"",pinned:false,note:""});
+    save(); openSheet("links"); toast("Saved");
+  };
+
+  if(view==="kb"){
+    $("kbOn").onchange=e=>{S.kb.on=e.target.checked;save();renderQuick();};
+    $("kbAuto").onchange=e=>{S.kb.auto=e.target.checked;save();};
+    $("kbG").onchange=e=>{S.kb.gistId=e.target.value.trim();save();};
+    $("kbTok").onchange=e=>{S.kb.token=e.target.value.trim();save();};
+    $("kbRaw").onchange=e=>{S.kb.rawUrl=e.target.value.trim();save();};
+    $("kbAdd").onclick=()=>{
+      const t=$("kbT").value.trim(); if(!t) return toast("Give it a title");
+      kbSave(t,$("kbB").value,S.kb.author||"you"); openSheet("kb"); toast("Saved");
+    };
+    $("kbPullB").onclick=async()=>{try{const n=await kbPull();openSheet("kb");
+      toast(n+" new entries pulled");}catch(err){toast(err.message);}};
+    $("kbPushB").onclick=async()=>{try{await kbPush();toast("Pushed");}catch(err){toast(err.message);}};
+    $("kbExp").onclick=()=>download("conduit-kb.json",kbPayload());
+    $("kbMd").onclick=()=>download("conduit-kb.md",S.kb.entries.map(e=>
+      `## ${e.title}\n_${e.by} · ${new Date(e.ts).toISOString().slice(0,10)}_\n\n${e.body}`).join("\n\n---\n\n"));
+  }
+
+  if(view==="data"){
+    $("dTheme").onchange=e=>{S.theme=e.target.checked?"light":"dark";
+      document.documentElement.dataset.theme=S.theme;save();};
+    $("dStrip").onchange=e=>{S.stripMeta=e.target.checked;save();};
+    $("dPx").onchange=e=>{S.maxImgPx=parseInt(e.target.value,10)||1400;save();};
+    $("dExp").onclick=()=>download("conduit-backup.json",JSON.stringify(S,null,2));
+    $("dImp").onclick=()=>{
+      const i=document.createElement("input"); i.type="file"; i.accept="application/json";
+      i.onchange=()=>{const f=i.files[0]; if(!f)return; const fr=new FileReader();
+        fr.onload=()=>{try{S=Object.assign({},DEF,JSON.parse(fr.result));save();
+          document.documentElement.dataset.theme=S.theme;render();closeSheet();toast("Imported");}
+          catch(err){toast("That file isn't a CONDUIT backup");}};
+        fr.readAsText(f);};
+      i.click();
+    };
+    $("dWipe").onclick=()=>{
+      if(!confirm("Erase all keys, models, setups and threads from this browser?")) return;
+      localStorage.removeItem(KEY); S=JSON.parse(JSON.stringify(DEF));
+      save(); closeSheet(); render(); toast("Erased");
+    };
+  }
+}
+
+
+/* ============================ TABS ============================ */
+const WEBCACHE={};
+function ensureTabs(){
+  if(!S.tabs.length){
+    S.tabs=[{id:uid(),kind:"chat",ref:chat().id,pinned:false}];
+    S.activeTab=S.tabs[0].id; save();
+  }
+  S.tabs=S.tabs.filter(t=>t.kind!=="chat"||S.chats.some(c=>c.id===t.ref));
+  if(!S.tabs.length){S.tabs=[{id:uid(),kind:"chat",ref:chat().id,pinned:false}];}
+  if(!S.tabs.some(t=>t.id===S.activeTab)) S.activeTab=S.tabs[0].id;
+}
+function activeTab(){return S.tabs.find(t=>t.id===S.activeTab);}
+function focusChat(chatId){
+  S.activeChat=chatId;
+  let t=S.tabs.find(x=>x.kind==="chat"&&x.ref===chatId);
+  if(!t){t={id:uid(),kind:"chat",ref:chatId,pinned:false};S.tabs.push(t);}
+  S.activeTab=t.id; save(); render();
+}
+function tabTitle(t){
+  if(t.kind==="chat"){const c=S.chats.find(c=>c.id===t.ref);return c?c.title:"thread";}
+  return t.title||(t.ref?t.ref.replace(/^https?:\/\/(www\.)?/,"").slice(0,28):"new tab");
+}
+function renderTabs(){
+  const ord=[...S.tabs].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0));
+  $("tabs").innerHTML=ord.map(t=>
+    `<div class="tab ${t.id===S.activeTab?"on":""} ${t.pinned?"pin":""}" data-tab="${t.id}">
+      <span class="k">${t.pinned?"PIN":t.kind==="chat"?"CHAT":"WEB"}</span>
+      <b>${esc(tabTitle(t))}</b>
+      ${S.tabs.length>1?`<span class="x" data-closetab="${t.id}">✕</span>`:""}
+    </div>`).join("")+`<button class="add" data-newtab="1">+</button>`;
+}
+$("tabs").onclick=e=>{
+  let b;
+  if(b=e.target.closest("[data-closetab]")){
+    S.tabs=S.tabs.filter(t=>t.id!==b.dataset.closetab); save(); render(); return;}
+  if(b=e.target.closest("[data-newtab]")){openSheet("newtab");return;}
+  if(b=e.target.closest("[data-tab]")){
+    S.activeTab=b.dataset.tab;
+    const t=activeTab(); if(t.kind==="chat") S.activeChat=t.ref;
+    save(); render();}
+};
+function openWebTab(url){
+  const t={id:uid(),kind:"web",ref:url,pinned:false,title:"",hist:[],hi:-1};
+  S.tabs.push(t); S.activeTab=t.id; save(); render();
+  if(url) loadPage(url);
+}
+VIEWS.newtab=()=>`<h2>New tab</h2><div class="list">
+  <button class="btn pri" data-go="newchat">Chat thread</button>
+  <button class="btn" data-go="newweb">Web page</button>
+  <button class="btn" data-go="links">Open a bookmark</button></div>`;
+
+/* ============================ WEB PANE ============================ */
+async function loadPage(url,push=true){
+  const t=activeTab(); if(!t||t.kind!=="web") return;
+  const q=url.trim();
+  const isUrl=/^https?:\/\//i.test(q)||/^[\w-]+(\.[\w-]+)+(\/|$)/.test(q);
+  const target=isUrl?(/^https?:/i.test(q)?q:"https://"+q):null;
+  t.ref=target||q; t.title=target?target.replace(/^https?:\/\/(www\.)?/,"").slice(0,28):"search: "+q;
+  if(push){t.hist=(t.hist||[]).slice(0,(t.hi|0)+1);t.hist.push(t.ref);t.hi=t.hist.length-1;}
+  save(); renderTabs(); $("wUrl").value=t.ref;
+  const body=$("wBody"); body.innerHTML='<p class="hint">Loading through the reader relay…</p>';
+  try{
+    const text=target?await runFetch(target):await runSearch(q);
+    WEBCACHE[t.id]=text;
+    if(!target) t.title="search: "+q.slice(0,20);
+    body.innerHTML=md(text);
+    const m=text.match(/^Title:\s*(.+)$/m); if(m&&target){t.title=m[1].slice(0,32);renderTabs();}
+    save();
+  }catch(e){
+    body.innerHTML=`<p class="hint">Couldn't load that. ${esc(e.message)}<br><br>
+      The relay refuses some sites. Try "open outside" to hand it to DuckDuckGo instead.</p>`;
+  }
+}
+function renderWeb(t){
+  $("wUrl").value=t.ref||"";
+  if(WEBCACHE[t.id]) $("wBody").innerHTML=md(WEBCACHE[t.id]);
+  else if(!t.ref) $("wBody").innerHTML=
+    `<p class="hint">Type a URL or a search. Pages come through in reader form — text, headings and
+     links, no scripts or trackers. Links you tap open in a new tab here.</p>`;
+  else if(t.ref) loadPage(t.ref,false);
+}
+$("wGo").onclick=()=>loadPage($("wUrl").value);
+$("wUrl").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();loadPage($("wUrl").value);}});
+$("wBack").onclick=()=>{const t=activeTab();
+  if(t&&t.hist&&t.hi>0){t.hi--;loadPage(t.hist[t.hi],false);}else toast("Nothing back there");};
+$("wBody").addEventListener("click",e=>{
+  const a=e.target.closest("a[href]"); if(!a) return;
+  e.preventDefault(); openWebTab(a.href);
+});
+document.querySelector(".wtools").onclick=e=>{
+  const b=e.target.closest("[data-w]"); if(!b) return;
+  const t=activeTab(), act=b.dataset.w;
+  if(!t) return;
+  if(act==="reload") return loadPage(t.ref,false);
+  if(act==="ext"){ if(t.ref) window.open(t.ref,"_blank","noopener"); return; }
+  if(act==="pin"){ t.pinned=!t.pinned; save(); renderTabs(); return toast(t.pinned?"Pinned":"Unpinned"); }
+  if(act==="mark"){
+    if(!t.ref) return toast("Nothing to bookmark");
+    S.links.unshift({id:uid(),url:t.ref,title:tabTitle(t),tags:"",pinned:false,note:""});
+    save(); return toast("Bookmarked");
+  }
+  const text=WEBCACHE[t.id];
+  if(!text) return toast("Load a page first");
+  if(act==="chat"){
+    const c=chat();
+    c.msgs.push({id:uid(),role:"user",content:`Here is a page I'm reading — ${t.ref}\n\n---\n${text.slice(0,12000)}`});
+    const ct=S.tabs.find(x=>x.kind==="chat"&&x.ref===c.id);
+    if(ct) S.activeTab=ct.id;
+    save(); render(); toast("Sent to chat");
+  }
+  if(act==="kb"){
+    kbSave(tabTitle(t),text.slice(0,4000)+"\n\nSource: "+t.ref,"you");
+    save(); toast("Saved to knowledge base");
+  }
+};
+
+/* ============================ KNOWLEDGE BASE ============================ */
+function kbSave(title,body,by){
+  const e={id:uid(),title:title.slice(0,120),body,by:by||S.kb.author||"unknown",ts:Date.now()};
+  S.kb.entries.unshift(e); save(); return e;
+}
+function kbIndex(){
+  if(!S.kb.entries.length) return "(empty — nothing recorded yet)";
+  return S.kb.entries.slice(0,40).map(e=>"- "+e.title).join("\n");
+}
+function kbSearch(q){
+  const terms=q.toLowerCase().split(/\s+/).filter(Boolean);
+  const hit=S.kb.entries.map(e=>{
+    const hay=(e.title+" "+e.body).toLowerCase();
+    return {e,score:terms.reduce((n,t)=>n+(hay.includes(t)?(e.title.toLowerCase().includes(t)?3:1):0),0)};
+  }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,5);
+  if(!hit.length) return "No knowledge base entries match \u201c"+q+"\u201d.";
+  return hit.map(x=>`### ${x.e.title}\n(by ${x.e.by}, ${new Date(x.e.ts).toISOString().slice(0,10)})\n${x.e.body.slice(0,1500)}`).join("\n\n");
+}
+function kbPayload(){return JSON.stringify({v:1,updated:Date.now(),entries:S.kb.entries},null,1);}
+function kbMerge(list){
+  const seen=new Set(S.kb.entries.map(e=>e.id));
+  let n=0;
+  for(const e of list){ if(!seen.has(e.id)){S.kb.entries.push(e);n++;} }
+  S.kb.entries.sort((a,b)=>b.ts-a.ts); save(); return n;
+}
+async function kbPush(){
+  if(!S.kb.gistId||!S.kb.token) throw new Error("Set a gist id and token first");
+  const r=await fetch("https://api.github.com/gists/"+S.kb.gistId,{method:"PATCH",
+    headers:{"Authorization":"Bearer "+S.kb.token,"Accept":"application/vnd.github+json"},
+    body:JSON.stringify({files:{"conduit-kb.json":{content:kbPayload()}}})});
+  if(!r.ok) throw new Error("GitHub "+r.status);
+  return true;
+}
+async function kbPull(){
+  let text=null;
+  if(S.kb.gistId){
+    const h={"Accept":"application/vnd.github+json"};
+    if(S.kb.token) h["Authorization"]="Bearer "+S.kb.token;
+    const r=await fetch("https://api.github.com/gists/"+S.kb.gistId,{headers:h});
+    if(!r.ok) throw new Error("GitHub "+r.status);
+    const j=await r.json(), f=j.files&&j.files["conduit-kb.json"];
+    if(!f) throw new Error("No conduit-kb.json in that gist");
+    text=f.truncated?await (await fetch(f.raw_url)).text():f.content;
+  } else if(S.kb.rawUrl){
+    const r=await fetch(S.kb.rawUrl); if(!r.ok) throw new Error("URL "+r.status);
+    text=await r.text();
+  } else throw new Error("Nothing to pull from");
+  const j=JSON.parse(text);
+  return kbMerge(j.entries||[]);
+}
+
+/* ============================ VIEWS: LINKS + KB ============================ */
+VIEWS.links=()=>{
+  const ord=[...S.links].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0));
+  return `<h2>Bookmarks &amp; pins</h2>
+  <div class="list">${ord.map(l=>`<div class="item ${l.pinned?"sel":""}">
+    <div class="t" data-openlink="${l.id}"><b>${esc(l.title||l.url)}</b><small>${esc(l.url)}</small></div>
+    <button class="btn" data-pinlink="${l.id}">${l.pinned?"unpin":"pin"}</button>
+    <button class="btn dan" data-dellink="${l.id}">del</button></div>`).join("")
+    ||'<p class="hint">Nothing saved. Open a web tab and tap bookmark.</p>'}</div>
+  <h3>Add by hand</h3>
+  <label class="f"><span>URL</span><input type="text" id="lUrl" placeholder="https://…"></label>
+  <label class="f"><span>Title</span><input type="text" id="lTitle"></label>
+  <button class="btn pri" id="lAdd">Save bookmark</button>`;
+};
+VIEWS.kb=()=>`<h2>Knowledge base</h2>
+<div class="sw"><div class="lbl">Let models read and write it
+  <small>Adds [[KB: …]] and [[KB-SAVE: …]] plus an index of titles to the system prompt</small></div>
+  <input type="checkbox" id="kbOn" ${S.kb.on?"checked":""}></div>
+<p class="hint">${S.kb.entries.length} entries. Every model you route through this app reads the same
+base, and so does any other AI you hand the exported file or gist link to.</p>
+<div class="list">${S.kb.entries.slice(0,40).map(e=>`<div class="kbcard">
+  <b>${esc(e.title)}</b><small>${esc(e.by)} · ${new Date(e.ts).toISOString().slice(0,10)}</small>
+  <p>${esc(e.body.slice(0,220))}${e.body.length>220?"…":""}</p>
+  <div class="acts"><button data-delkb="${e.id}">delete</button></div></div>`).join("")
+  ||'<p class="hint">Empty so far.</p>'}</div>
+<h3>Add an entry</h3>
+<label class="f"><span>Title</span><input type="text" id="kbT"></label>
+<label class="f"><span>Body</span><textarea class="f" id="kbB"></textarea></label>
+<button class="btn pri" id="kbAdd">Save entry</button>
+<h3>Shared sync (GitHub gist)</h3>
+<label class="f"><span>Gist id</span><input type="text" id="kbG" value="${esc(S.kb.gistId)}"
+  placeholder="id from the gist URL"></label>
+<label class="f"><span>GitHub token (gist scope) — needed only to write</span>
+  <input type="password" id="kbTok" value="${esc(S.kb.token)}"></label>
+<label class="f"><span>Or a plain read-only JSON URL</span>
+  <input type="text" id="kbRaw" value="${esc(S.kb.rawUrl)}" placeholder="https://…/conduit-kb.json"></label>
+<div class="sw"><div class="lbl">Pull on startup</div>
+  <input type="checkbox" id="kbAuto" ${S.kb.auto?"checked":""}></div>
+<div class="row"><button class="btn" id="kbPullB">Pull</button><button class="btn" id="kbPushB">Push</button></div>
+<div class="row" style="margin-top:8px"><button class="btn" id="kbExp">Export .json</button>
+  <button class="btn" id="kbMd">Export .md</button></div>
+<p class="hint">Make a gist with one file named conduit-kb.json, paste its id here, and every device or
+app you point at it shares the same memory. Pull merges by entry id — nothing is overwritten.</p>`;
+
+/* ============================ INIT ============================ */
+document.documentElement.dataset.theme=S.theme;
+if(S.kb.auto&&(S.kb.gistId||S.kb.rawUrl)) kbPull().then(n=>{if(n){render();toast(n+" entries pulled");}}).catch(()=>{});
+if(!S.activeChat||!S.chats.find(c=>c.id===S.activeChat)) chat();
+render();
+window.addEventListener("beforeunload",e=>{if(BUSY){e.preventDefault();e.returnValue="";}});
+</script>
+</body>
+</html>
